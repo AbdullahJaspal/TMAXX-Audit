@@ -1,0 +1,13 @@
+diff --git a/node_modules/@react-native-community/datetimepicker/ios/RNDateTimePickerShadowView.m b/node_modules/@react-native-community/datetimepicker/ios/RNDateTimePickerShadowView.m
+index c139440..c465af0 100644
+--- a/node_modules/@react-native-community/datetimepicker/ios/RNDateTimePickerShadowView.m
++++ b/node_modules/@react-native-community/datetimepicker/ios/RNDateTimePickerShadowView.m
+@@ -5,7 +5,7 @@
+ - (instancetype)init
+ {
+   if (self = [super init]) {
+-    YGNodeSetMeasureFunc(self.yogaNode, RNDateTimePickerShadowViewMeasure);
++    YGNodeSetMeasureFunc(self.yogaNode, (YGMeasureFunc)RNDateTimePickerShadowViewMeasure);
+   }
+   return self;
+ }

@@ -1,0 +1,925 @@
+diff --git a/app/(tabs)/squad.tsx b/app/(tabs)/squad.tsx
+index 0d9ca9b..e847e5b 100644
+--- a/app/(tabs)/squad.tsx
++++ b/app/(tabs)/squad.tsx
+@@ -10,6 +10,7 @@ import {
+   TextInput,
+   Platform,
+   StatusBar,
++  Image,
+ } from 'react-native';
+ import Colors from '@/constants/Colors';
+ import {
+@@ -30,6 +31,8 @@ import SquadJoinModal from '@/components/squads/SquadJoinModal';
+ import { useSquad } from '@/contexts/SquadContext';
+ import { useTheme } from '@/contexts/ThemeContext';
+ import type { SquadMember } from '@/contexts/SquadContext';
++import { getDisplayName, getAvatarLetter } from '@/lib/api/types';
++import { formatRelativeTime } from '@/lib/utils/dateFormatters';
+ 
+ export default function SquadScreen() {
+   const {
+@@ -37,7 +40,10 @@ export default function SquadScreen() {
+     hasJoinedSquad,
+     refreshSquad,
+     squadName,
+-    setSquadName,
++    squadStreak,
++    squadHabits,
++    squadEnergy,
++    feed,
+     createSquad,
+   } = useSquad();
+   const { theme } = useTheme();
+@@ -60,94 +66,144 @@ export default function SquadScreen() {
+     setRefreshing(false);
+   }, [refreshSquad]);
+ 
+-  const handleBoost = (memberId: string) => {
+-    if (!boostedMembers.includes(memberId)) {
+-      setBoostedMembers([...boostedMembers, memberId]);
++  const handleBoost = (memberName: string) => {
++    if (!boostedMembers.includes(memberName)) {
++      setBoostedMembers([...boostedMembers, memberName]);
+     }
+   };
+ 
+-  const handleLike = (memberId: string) => {
+-    if (!likedPosts.includes(memberId)) {
+-      setLikedPosts([...likedPosts, memberId]);
++  const handleLike = (postId: string) => {
++    if (!likedPosts.includes(postId)) {
++      setLikedPosts([...likedPosts, postId]);
+     }
+   };
+ 
+-  const openProfile = (member: SquadMember) => setSelectedMember(member);
++  const openProfile = (member: SquadMember) => {
++    setSelectedMember(member);
++    setShowProfileModal(true);
++  };
+ 
+   const handleSaveSquadName = () => {
+     if (editedName.trim()) {
+-      setSquadName(editedName.trim());
++      // TODO: Implement API call to update squad name
++      setIsEditingName(false);
+     }
+-    setIsEditingName(false);
+   };
+ 
+-  const handleSquadCreated = (name: string) => {
+-    createSquad(name);
++  const handleSquadCreated = async (name: string) => {
++    await createSquad(name);
+     setShowCreateModal(false);
+     setShowInviteModal(true);
+   };
+ 
+-  const renderMemberAvatar = (member: SquadMember) => (
+-    <TouchableOpacity
+-      key={member.id}
+-      style={[styles.memberItem, { opacity: member.active ? 1 : 0.7 }]}
+-      onPress={() => openProfile(member)}
+-    >
+-      <View style={[styles.avatar, { backgroundColor: colors.tint + '20' }]}>
+-        <Text style={[styles.avatarText, { color: colors.tint }]}>
+-          {member.name[0]}
+-        </Text>
+-        <TouchableOpacity
+-          style={[
+-            styles.boostButton,
+-            {
+-              backgroundColor: boostedMembers.includes(member.id)
+-                ? colors.tint
+-                : colors.tint + '20',
+-            },
+-          ]}
+-          onPress={e => {
+-            e.stopPropagation();
+-            handleBoost(member.id);
+-          }}
+-          disabled={boostedMembers.includes(member.id)}
+-        >
+-          <HandFist
+-            size={14}
+-            color={boostedMembers.includes(member.id) ? '#fff' : colors.tint}
+-          />
+-        </TouchableOpacity>
+-      </View>
+-      <Text style={[styles.memberName, { color: colors.text }]}>
+-        {member.name}
+-      </Text>
+-      <Text style={[styles.streakText, { color: colors.success }]}>
+-        {member.streak > 0 ? `🔥 ${member.streak}` : 'Inactive'}
+-      </Text>
+-    </TouchableOpacity>
+-  );
++  const renderMemberAvatar = (member: SquadMember) => {
++    const displayName = getDisplayName(member.name);
++    const avatarLetter = getAvatarLetter(member.name);
+ 
+-  const renderFeedAvatar = (member: SquadMember) => (
+-    <TouchableOpacity
+-      key={member.id + member.timestamp}
+-      style={styles.feedUser}
+-      onPress={() => openProfile(member)}
+-    >
+-      <View style={[styles.feedAvatar, { backgroundColor: colors.tint + '20' }]}>
+-        <Text style={[styles.feedAvatarText, { color: colors.tint }]}>
+-          {member.name[0]}
++    return (
++      <TouchableOpacity
++        key={member.name}
++        style={[styles.memberItem]}
++        onPress={() => openProfile(member)}
++      >
++        <View style={[styles.avatar, { backgroundColor: colors.tint + '20' }]}>
++          {member.avatar ? (
++            <Image 
++              source={{ uri: member.avatar }} 
++              style={styles.avatarImage}
++            />
++          ) : (
++            <View style={[styles.avatarLetterContainer, { backgroundColor: colors.tint }]}>
++              <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>
++                {avatarLetter}
++              </Text>
++            </View>
++          )}
++          <TouchableOpacity
++            style={[
++              styles.boostButton,
++              {
++                backgroundColor: member.boosted || boostedMembers.includes(displayName)
++                  ? colors.tint
++                  : colors.tint + '20',
++              },
++            ]}
++            onPress={e => {
++              e.stopPropagation();
++              handleBoost(displayName);
++            }}
++            disabled={member.boosted || boostedMembers.includes(displayName)}
++          >
++            <HandFist
++              size={14}
++              color={member.boosted || boostedMembers.includes(displayName) ? '#fff' : colors.tint}
++            />
++          </TouchableOpacity>
++        </View>
++        <Text style={[styles.memberName, { color: colors.text }]}>
++          {displayName}
+         </Text>
+-      </View>
+-      <View>
+-        <Text style={[styles.feedName, { color: colors.text }]}>
+-          {member.name}
++        <Text style={[styles.streakText, { color: colors.success }]}>
++          {member.streak > 0 ? `🔥 ${member.streak}` : 'Inactive'}
+         </Text>
+-        <Text style={[styles.feedTime, { color: colors.muted }]}>
+-          {member.timestamp}
++      </TouchableOpacity>
++    );
++  };
++
++  const renderFeedItem = (feedItem: typeof feed[0], index: number) => {
++    const displayName = getDisplayName(feedItem.name);
++    const avatarLetter = getAvatarLetter(feedItem.name);
++    const formattedTime = formatRelativeTime(feedItem.time);
++
++    return (
++      <View
++        key={`${displayName}-${index}`}
++        style={[styles.feedItem, { borderBottomColor: colors.border }]}
++      >
++        <View style={styles.feedHeader}>
++          <View style={styles.feedUser}>
++            <View style={[styles.feedAvatar, { backgroundColor: colors.tint + '20' }]}>
++              {feedItem.avatar ? (
++                <Image 
++                  source={{ uri: feedItem.avatar }} 
++                  style={styles.feedAvatarImage}
++                />
++              ) : (
++                <View style={[styles.feedAvatarLetterContainer, { backgroundColor: colors.tint }]}>
++                  <Text style={[styles.feedAvatarText, { color: '#FFFFFF' }]}>
++                    {avatarLetter}
++                  </Text>
++                </View>
++              )}
++            </View>
++            <View>
++              <Text style={[styles.feedName, { color: colors.text }]}>
++                {displayName}
++              </Text>
++              <Text style={[styles.feedTime, { color: colors.muted }]}>
++                {formattedTime}
++              </Text>
++            </View>
++          </View>
++        </View>
++        <Text style={[styles.feedContent, { color: colors.text }]}>
++          {feedItem.text}
+         </Text>
++        <View style={styles.feedActions}>
++          <TouchableOpacity 
++            style={[styles.boostAction, { backgroundColor: colors.tint + '20' }]}
++            onPress={() => handleBoost(displayName)}
++            disabled={boostedMembers.includes(displayName)}
++          >
++            <HandFist size={18} color={colors.tint} />
++            <Text style={[styles.boostText, { color: colors.tint }]}>
++              {boostedMembers.includes(displayName) ? 'Boosted!' : 'Boost'}
++            </Text>
++          </TouchableOpacity>
++        </View>
+       </View>
+-    </TouchableOpacity>
+-  );
++    );
++  };
+ 
+   return (
+     <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 0, backgroundColor: colors.background }}>
+@@ -236,7 +292,7 @@ export default function SquadScreen() {
+                   <View style={styles.milestoneItem}>
+                     <Text style={styles.milestoneIcon}>🏆</Text>
+                     <Text style={[styles.milestoneValue, { color: colors.text }]}>
+-                      {squadMembers.reduce((sum, m) => sum + m.habitsCompleted, 0)}
++                      {squadHabits}
+                     </Text>
+                     <Text style={[styles.milestoneLabel, { color: colors.muted }]}>
+                       Total Habits
+@@ -245,7 +301,7 @@ export default function SquadScreen() {
+                   <View style={styles.milestoneItem}>
+                     <Text style={styles.milestoneIcon}>🔥</Text>
+                     <Text style={[styles.milestoneValue, { color: colors.text }]}>
+-                      {Math.max(...squadMembers.map(m => m.streak))}
++                      {squadStreak}
+                     </Text>
+                     <Text style={[styles.milestoneLabel, { color: colors.muted }]}>
+                       Squad Streak
+@@ -254,7 +310,7 @@ export default function SquadScreen() {
+                   <View style={styles.milestoneItem}>
+                     <Text style={styles.milestoneIcon}>🚀</Text>
+                     <Text style={[styles.milestoneValue, { color: colors.text }]}>
+-                      {Math.round((squadMembers.filter(m => m.active).length / squadMembers.length) * 100)}%
++                      {squadEnergy}%
+                     </Text>
+                     <Text style={[styles.milestoneLabel, { color: colors.muted }]}>
+                       Energy Boost
+@@ -267,61 +323,13 @@ export default function SquadScreen() {
+             {/* Feed */}
+             <Text style={[styles.sectionTitle, { color: colors.text }]}>Squad Feed</Text>
+             <View style={[styles.feedCard, { backgroundColor: colors.cardBackground }]}>
+-              {squadMembers
+-                .filter(m => m.active || m.achievement)
+-                .map(member => (
+-                  <View
+-                    key={member.id + member.timestamp}
+-                    style={[styles.feedItem, { borderBottomColor: colors.border }]}
+-                  >
+-                    <View style={styles.feedHeader}>
+-                      {renderFeedAvatar(member)}
+-                      {member.achievement && (
+-                        <View style={[styles.achievementBadge, { backgroundColor: colors.success + '20' }]}>
+-                          <Text style={[styles.achievementText, { color: colors.success }]}>
+-                            {member.achievement}
+-                          </Text>
+-                        </View>
+-                      )}
+-                    </View>
+-                    <Text style={[styles.feedContent, { color: colors.text }]}>
+-                      {member.lastAction}
+-                    </Text>
+-                    <View style={styles.feedActions}>
+-                      <TouchableOpacity onPress={() => handleLike(member.id)} style={styles.actionButton}>
+-                        <Heart
+-                          size={18}
+-                          color={likedPosts.includes(member.id) ? colors.error : colors.muted}
+-                          fill={likedPosts.includes(member.id) ? colors.error : 'none'}
+-                        />
+-                        <Text style={[styles.actionText, { color: colors.muted }]}>
+-                          {member.likes + (likedPosts.includes(member.id) ? 1 : 0)}
+-                        </Text>
+-                      </TouchableOpacity>
+-                      <TouchableOpacity style={styles.actionButton}>
+-                        <MessageCircle size={18} color={colors.muted} />
+-                        <Text style={[styles.actionText, { color: colors.muted }]}>
+-                          {member.comments}
+-                        </Text>
+-                      </TouchableOpacity>
+-                      <TouchableOpacity
+-                        style={[styles.boostAction, { backgroundColor: colors.tint + '20' }]}
+-                        onPress={() => handleBoost(member.id)}
+-                        disabled={boostedMembers.includes(member.id)}
+-                      >
+-                        <HandFist size={18} color={colors.tint} />
+-                        <Text style={[styles.boostText, { color: colors.tint }]}>
+-                          {boostedMembers.includes(member.id) ? 'Boosted!' : 'Boost'}
+-                        </Text>
+-                      </TouchableOpacity>
+-                    </View>
+-                  </View>
+-                ))}
++              {feed.map((item, index) => renderFeedItem(item, index))}
+             </View>
+           </View>
+         </ScrollView>
+       )}
+ 
++
+       {/* Modals */}
+       <SquadCreateModal
+         visible={showCreateModal}
+@@ -347,7 +355,7 @@ export default function SquadScreen() {
+         }}
+         member={selectedMember}
+         onBoost={handleBoost}
+-        onRemove={() => console.log('remove', selectedMember?.id)}
++        onRemove={() => console.log('remove', selectedMember?.name)}
+         boostedMembers={boostedMembers}
+       />
+     </SafeAreaView>
+@@ -429,4 +437,28 @@ const styles = StyleSheet.create({
+   actionText: { fontSize: 14, fontFamily: 'Inter-Medium' },
+   boostAction: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+   boostText: { fontSize: 14, fontFamily: 'Inter-Medium' },
+-});
+\ No newline at end of file
++  avatarImage: {
++    width: '100%',
++    height: '100%',
++    borderRadius: 22,
++  },
++  feedAvatarImage: {
++    width: '100%',
++    height: '100%',
++    borderRadius: 20,
++  },
++  avatarLetterContainer: {
++    width: '100%',
++    height: '100%',
++    justifyContent: 'center',
++    alignItems: 'center',
++    borderRadius: 22,
++  },
++  feedAvatarLetterContainer: {
++    width: '100%',
++    height: '100%',
++    justifyContent: 'center',
++    alignItems: 'center',
++    borderRadius: 20,
++  },
++});
+diff --git a/components/squads/SquadCreateModal.tsx b/components/squads/SquadCreateModal.tsx
+index 868c744..f1c50cd 100644
+--- a/components/squads/SquadCreateModal.tsx
++++ b/components/squads/SquadCreateModal.tsx
+@@ -50,16 +50,7 @@ const SquadCreateModal: React.FC<SquadCreateModalProps> = ({
+     setError('');
+ 
+     try {
+-      const { data, error: squadError } = await createSquad(squadName.trim());
+-      
+-      if (squadError) {
+-        setError(squadError.message);
+-        return;
+-      }
+-
+-      if (data) {
+-        onCreateSquad(data.id);
+-      }
++      await onCreateSquad(squadName.trim());
+     } catch (err) {
+       setError('Failed to create squad. Please try again.');
+     } finally {
+diff --git a/components/squads/SquadInviteModal.tsx b/components/squads/SquadInviteModal.tsx
+index 8de8cd9..51b66eb 100644
+--- a/components/squads/SquadInviteModal.tsx
++++ b/components/squads/SquadInviteModal.tsx
+@@ -3,6 +3,7 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity, Share, Platform, Keybo
+ import Colors from '@/constants/Colors';
+ import { Copy, Share as ShareIcon, X } from 'lucide-react-native';
+ import { useTheme } from '@/contexts/ThemeContext';
++import { useSquad } from '@/contexts/SquadContext';
+ 
+ type SquadInviteModalProps = {
+   visible: boolean;
+@@ -15,12 +16,13 @@ const SquadInviteModal: React.FC<SquadInviteModalProps> = ({
+ }) => {
+   const { theme } = useTheme();
+   const colors = Colors[theme];
++  const { squadData } = useSquad();
+   const [copied, setCopied] = useState(false);
+   const [copiedMsg, setCopiedMsg] = useState(false);
+ 
+   if (!visible) return null;
+ 
+-  const squadCode = 'F9X3BZ';
++  const squadCode = squadData?.invite_code || '';
+   const inviteMessage = `Join my Squad on Tmaxx and let's level up together. 💪 Download Tmaxx and use code ${squadCode} to join me! https://tmaxx.app/squad`;
+ 
+   const handleCopy = () => {
+diff --git a/components/squads/SquadJoinModal.tsx b/components/squads/SquadJoinModal.tsx
+index 5718c28..7f9f5ce 100644
+--- a/components/squads/SquadJoinModal.tsx
++++ b/components/squads/SquadJoinModal.tsx
+@@ -5,7 +5,6 @@ import { Check, X } from 'lucide-react-native';
+ import { useRouter } from 'expo-router';
+ import { useSquad } from '@/contexts/SquadContext';
+ import { useTheme } from '@/contexts/ThemeContext';
+-import { joinSquad } from '@/lib/supabase/squad';
+ 
+ type SquadJoinModalProps = {
+   visible: boolean;
+@@ -19,7 +18,7 @@ const SquadJoinModal: React.FC<SquadJoinModalProps> = ({
+   const { theme } = useTheme();
+   const colors = Colors[theme];
+   const router = useRouter();
+-  const { setSquadMembers, setHasJoinedSquad } = useSquad();
++  const { joinSquad } = useSquad();
+   const [squadCode, setSquadCode] = useState('');
+   const [isLoading, setIsLoading] = useState(false);
+   const [error, setError] = useState('');
+@@ -34,18 +33,9 @@ const SquadJoinModal: React.FC<SquadJoinModalProps> = ({
+     setIsLoading(true);
+ 
+     try {
+-      const { data, error: joinError } = await joinSquad(squadCode);
+-      
+-      if (joinError) {
+-        setError(joinError.message);
+-        return;
+-      }
+-
+-      if (data) {
+-        setHasJoinedSquad(true);
+-        onClose();
+-        router.replace('/(tabs)/squad');
+-      }
++      await joinSquad(squadCode);
++      onClose();
++      router.replace('/(tabs)/squad');
+     } catch (err) {
+       setError('Failed to join squad. Please try again.');
+     } finally {
+diff --git a/components/squads/SquadProfileModal.tsx b/components/squads/SquadProfileModal.tsx
+index 31ef8e2..1e70d1f 100644
+--- a/components/squads/SquadProfileModal.tsx
++++ b/components/squads/SquadProfileModal.tsx
+@@ -1,20 +1,17 @@
+ import React from 'react';
+-import { Modal, View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
++import { Modal, View, Text, StyleSheet, TouchableOpacity, Dimensions, Image } from 'react-native';
+ import Colors from '@/constants/Colors';
+ import { X, Hand as HandFist, UserMinus } from 'lucide-react-native';
+ import { useTheme } from '@/contexts/ThemeContext';
++import { SquadMember } from '@/contexts/SquadContext';
++import { getDisplayName, getAvatarLetter } from '@/lib/api/types';
+ 
+ type SquadProfileModalProps = {
+   visible: boolean;
+   onClose: () => void;
+-  member: {
+-    id: string;
+-    name: string;
+-    streak: number;
+-    habitsCompleted: number;
+-  } | null;
+-  onBoost: (id: string) => void;
+-  onRemove: (id: string) => void;
++  member: SquadMember | null;
++  onBoost: (name: string) => void;
++  onRemove: (name: string) => void;
+   boostedMembers: string[];
+ };
+ 
+@@ -31,7 +28,9 @@ const SquadProfileModal: React.FC<SquadProfileModalProps> = ({
+ 
+   if (!member) return null;
+ 
+-  const isBoosted = boostedMembers.includes(member.id);
++  const displayName = getDisplayName(member.name);
++  const avatarLetter = getAvatarLetter(member.name);
++  const isBoosted = member.boosted || boostedMembers.includes(displayName);
+ 
+   return (
+     <Modal
+@@ -51,13 +50,22 @@ const SquadProfileModal: React.FC<SquadProfileModalProps> = ({
+ 
+           <View style={styles.content}>
+             <View style={[styles.avatar, { backgroundColor: colors.tint + '20' }]}>
+-              <Text style={[styles.avatarText, { color: colors.tint }]}>
+-                {member.name[0]}
+-              </Text>
++              {member.avatar ? (
++                <Image 
++                  source={{ uri: member.avatar }} 
++                  style={styles.avatarImage}
++                />
++              ) : (
++                <View style={[styles.avatarLetterContainer, { backgroundColor: colors.tint }]}>
++                  <Text style={[styles.avatarText, { color: '#FFFFFF' }]}>
++                    {avatarLetter}
++                  </Text>
++                </View>
++              )}
+             </View>
+ 
+             <Text style={[styles.name, { color: colors.text }]}>
+-              {member.name}
++              {displayName}
+             </Text>
+ 
+             <View style={styles.statsContainer}>
+@@ -69,15 +77,6 @@ const SquadProfileModal: React.FC<SquadProfileModalProps> = ({
+                   Day Streak 🔥
+                 </Text>
+               </View>
+-
+-              <View style={[styles.statCard, { backgroundColor: colors.background }]}>
+-                <Text style={[styles.statValue, { color: colors.text }]}>
+-                  {member.habitsCompleted}
+-                </Text>
+-                <Text style={[styles.statLabel, { color: colors.muted }]}>
+-                  Today's Habits
+-                </Text>
+-              </View>
+             </View>
+ 
+             <TouchableOpacity
+@@ -89,7 +88,7 @@ const SquadProfileModal: React.FC<SquadProfileModalProps> = ({
+                   borderColor: colors.tint,
+                 },
+               ]}
+-              onPress={() => onBoost(member.id)}
++              onPress={() => onBoost(displayName)}
+               disabled={isBoosted}
+             >
+               <HandFist size={20} color={isBoosted ? colors.tint : '#fff'} />
+@@ -106,7 +105,7 @@ const SquadProfileModal: React.FC<SquadProfileModalProps> = ({
+             <TouchableOpacity
+               style={[styles.removeButton, { borderColor: colors.error }]}
+               onPress={() => {
+-                onRemove(member.id);
++                onRemove(displayName);
+                 onClose();
+               }}
+             >
+@@ -162,6 +161,11 @@ const styles = StyleSheet.create({
+     justifyContent: 'center',
+     alignItems: 'center',
+     marginBottom: 16,
++    overflow: 'hidden',
++  },
++  avatarImage: {
++    width: '100%',
++    height: '100%',
+   },
+   avatarText: {
+     fontSize: 32,
+@@ -222,6 +226,14 @@ const styles = StyleSheet.create({
+     fontSize: 16,
+     fontFamily: 'Inter-SemiBold',
+   },
++  avatarLetterContainer: {
++    width: '100%',
++    height: '100%',
++    justifyContent: 'center',
++    alignItems: 'center',
++    borderRadius: 40,
++    backgroundColor: '#3FB4F6',
++  },
+ });
+ 
+ export default SquadProfileModal;
+\ No newline at end of file
+diff --git a/contexts/SquadContext.tsx b/contexts/SquadContext.tsx
+index f19a627..ef94f73 100644
+--- a/contexts/SquadContext.tsx
++++ b/contexts/SquadContext.tsx
+@@ -1,89 +1,109 @@
+-import React, { createContext, useContext, useState, ReactNode } from 'react';
++import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
++import { SquadsAPI } from '@/lib/api/squads';
++import { Squad } from '@/lib/api/types';
++import { supabase } from '@/lib/supabase/client';
++import { useAuth } from '@/contexts/AuthContext';
+ 
+ export type SquadMember = {
+-  id: string;
+   name: string;
+   streak: number;
+-  lastAction: string;
+-  active: boolean;
+-  habitsCompleted: number;
+-  timestamp: string;
+-  likes: number;
+-  comments: number;
+-  achievement?: string;
++  boosted: boolean;
++  avatar: string;
+ };
+ 
+ type SquadContextType = {
+   squadMembers: SquadMember[];
+-  setSquadMembers: React.Dispatch<React.SetStateAction<SquadMember[]>>;
+   hasJoinedSquad: boolean;
+-  setHasJoinedSquad: (value: boolean) => void;
+   refreshSquad: () => Promise<void>;
+   squadName: string;
+-  setSquadName: (name: string) => void;
+-  createSquad: (name: string) => void;
++  squadId: string | null;
++  squadStreak: number;
++  squadHabits: number;
++  squadEnergy: number;
++  feed: Array<{
++    name: string;
++    avatar: string;
++    time: string;
++    text: string;
++  }>;
++  createSquad: (name: string) => Promise<void>;
++  joinSquad: (inviteCode: string) => Promise<void>;
++  squadData: Squad | null;
+ };
+ 
+ const SquadContext = createContext<SquadContextType>({
+   squadMembers: [],
+-  setSquadMembers: () => {},
+   hasJoinedSquad: false,
+-  setHasJoinedSquad: () => {},
+   refreshSquad: async () => {},
+   squadName: '',
+-  setSquadName: () => {},
+-  createSquad: () => {},
++  squadId: null,
++  squadStreak: 0,
++  squadHabits: 0,
++  squadEnergy: 0,
++  feed: [],
++  createSquad: async () => {},
++  joinSquad: async () => {},
++  squadData: null,
+ });
+ 
+ export const SquadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+-  const [squadMembers, setSquadMembers] = useState<SquadMember[]>([]);
++  const [squadData, setSquadData] = useState<Squad | null>(null);
+   const [hasJoinedSquad, setHasJoinedSquad] = useState(false);
+-  const [squadName, setSquadName] = useState('');
++  const squadId = '73018848-c652-4b75-9026-a75581d4c599'; // TODO: Get this from API
++  const { session } = useAuth();
+ 
+   const refreshSquad = async () => {
+-    await new Promise(resolve => setTimeout(resolve, 1000));
+-    setSquadMembers(currentMembers => 
+-      currentMembers.map(member => ({
+-        ...member,
+-        timestamp: 'Just now',
+-        habitsCompleted: Math.min(member.habitsCompleted + 1, 5),
+-        lastAction: member.active ? 
+-          ['Completed morning workout 💪', 'Hit a new PR today! 🎯', 'Morning sunlight ☀️'][
+-            Math.floor(Math.random() * 3)
+-          ] : 
+-          member.lastAction
+-      }))
+-    );
+-  };
++    try {
++      if (!session?.access_token) return;
+ 
+-  const createSquad = (name: string) => {
+-    setSquadName(name);
+-    setHasJoinedSquad(true);
+-    setSquadMembers([
+-      {
+-        id: '1',
+-        name: 'You',
+-        streak: 0,
+-        lastAction: 'Created the squad 🎉',
+-        active: true,
+-        habitsCompleted: 0,
+-        timestamp: 'Just now',
+-        likes: 0,
+-        comments: 0,
++      const squadsAPI = new SquadsAPI(session.access_token);
++      const squad = await squadsAPI.getSquad(squadId);
++      
++      setSquadData(squad);
++      setHasJoinedSquad(true);
++    } catch (error) {
++      if ((error as any)?.status === 403) {
++        setHasJoinedSquad(false);
++        setSquadData(null);
+       }
+-    ]);
++      console.error('Error fetching squad:', error);
++    }
++  };
++
++  useEffect(() => {
++    if (session?.access_token) {
++      refreshSquad();
++    } else {
++      // Reset squad data when user logs out
++      setSquadData(null);
++      setHasJoinedSquad(false);
++    }
++  }, [session?.access_token]);
++
++  const createSquad = async (name: string) => {
++    // TODO: Implement create squad API call
++    await refreshSquad();
++  };
++
++  const joinSquad = async (inviteCode: string) => {
++    // TODO: Implement join squad API call
++    await refreshSquad();
+   };
+ 
+   return (
+-    <SquadContext.Provider value={{ 
+-      squadMembers, 
+-      setSquadMembers, 
+-      hasJoinedSquad, 
+-      setHasJoinedSquad,
++    <SquadContext.Provider value={{
++      squadMembers: squadData?.members || [],
++      hasJoinedSquad,
+       refreshSquad,
+-      squadName,
+-      setSquadName,
+-      createSquad
++      squadName: squadData?.name || '',
++      squadId: squadData?.squad_id || null,
++      squadStreak: squadData?.squad_streak || 0,
++      squadHabits: squadData?.squad_habits || 0,
++      squadEnergy: squadData?.squad_energy || 0,
++      feed: squadData?.feed || [],
++      createSquad,
++      joinSquad,
++      squadData,
+     }}>
+       {children}
+     </SquadContext.Provider>
+diff --git a/lib/api/squads.ts b/lib/api/squads.ts
+new file mode 100644
+index 0000000..5741c88
+--- /dev/null
++++ b/lib/api/squads.ts
+@@ -0,0 +1,27 @@
++import { Squad } from './types';
++
++const API_BASE_URL = 'https://api.tmaxx.app';
++
++export class SquadsAPI {
++    private authToken: string;
++
++    constructor(authToken: string) {
++        this.authToken = authToken;
++    }
++
++    async getSquad(squadId: string): Promise<Squad> {
++        const response = await fetch(`${API_BASE_URL}/squads/${squadId}`, {
++            method: 'GET',
++            headers: {
++                'Authorization': `Bearer ${this.authToken}`,
++                'Content-Type': 'application/json',
++            },
++        });
++
++        if (!response.ok) {
++            throw new Error(`Failed to fetch squad: ${response.statusText}`);
++        }
++
++        return response.json();
++    }
++} 
+\ No newline at end of file
+diff --git a/lib/api/types.ts b/lib/api/types.ts
+new file mode 100644
+index 0000000..cdf432e
+--- /dev/null
++++ b/lib/api/types.ts
+@@ -0,0 +1,34 @@
++export interface SquadMember {
++    name: string;
++    streak: number;
++    boosted: boolean;
++    avatar: string;
++}
++
++export interface FeedItem {
++    name: string;
++    avatar: string;
++    time: string;
++    text: string;
++}
++
++export interface Squad {
++    squad_id: string;
++    name: string;
++    invite_code: string;
++    squad_streak: number;
++    squad_habits: number;
++    squad_energy: number;
++    members: SquadMember[];
++    feed: FeedItem[];
++}
++
++// Helper functions for member display
++export const getDisplayName = (name: string | null | undefined): string => {
++    return name?.trim() || 'Unknown Member';
++};
++
++export const getAvatarLetter = (name: string | null | undefined): string => {
++    const displayName = getDisplayName(name);
++    return displayName[0].toUpperCase();
++}; 
+\ No newline at end of file
+diff --git a/lib/utils/dateFormatters.ts b/lib/utils/dateFormatters.ts
+new file mode 100644
+index 0000000..1f72367
+--- /dev/null
++++ b/lib/utils/dateFormatters.ts
+@@ -0,0 +1,55 @@
++export function formatRelativeTime(dateString: string): string {
++    const date = new Date(dateString);
++    const now = new Date();
++    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
++    const diffInMinutes = Math.floor(diffInSeconds / 60);
++    const diffInHours = Math.floor(diffInMinutes / 60);
++    const diffInDays = Math.floor(diffInHours / 24);
++
++    // If invalid date, return empty string
++    if (isNaN(date.getTime())) {
++        return '';
++    }
++
++    // Less than 1 hour ago
++    if (diffInHours < 1) {
++        if (diffInMinutes < 1) {
++            return 'Just now';
++        }
++        return `${diffInMinutes} ${diffInMinutes === 1 ? 'min' : 'mins'} ago`;
++    }
++
++    // Less than 24 hours ago
++    if (diffInHours < 24) {
++        return `${diffInHours} ${diffInHours === 1 ? 'hr' : 'hrs'} ago`;
++    }
++
++    // Yesterday
++    if (diffInDays === 1) {
++        return 'Yesterday';
++    }
++
++    // Less than 7 days ago
++    if (diffInDays < 7) {
++        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
++        return days[date.getDay()];
++    }
++
++    // More than 7 days ago
++    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
++    const day = date.getDate();
++    const month = months[date.getMonth()];
++    
++    // Add ordinal suffix to day
++    const ordinalSuffix = (d: number): string => {
++        if (d > 3 && d < 21) return 'th';
++        switch (d % 10) {
++            case 1: return 'st';
++            case 2: return 'nd';
++            case 3: return 'rd';
++            default: return 'th';
++        }
++    };
++
++    return `${month} ${day}${ordinalSuffix(day)}`;
++} 
+\ No newline at end of file
+diff --git a/todo.txt b/todo.txt
+index 0bf8e93..db54069 100644
+--- a/todo.txt
++++ b/todo.txt
+@@ -1,8 +1,10 @@
+-
++- Implement API
+ - Squads Backend
+-- Signup is not working properly. 
++- Signup is not working properly (may be fixed after Supabase issue)
+ - Implement user timezone checking on app open. 
+ 	•	Use the device’s current timezone (e.g., via Intl.DateTimeFormat().resolvedOptions().timeZone in JavaScript/React Native).
+ 	•	Compare it to the timezone value stored in your database.
+ 	•	If different, call a lightweight API or Supabase function to update the value.
+-- Projection Chart FF 
+\ No newline at end of file
++- Projection Chart FF 
++- Retake Quiz? 
++

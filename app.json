@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Tmaxx",
+    "slug": "tmaxx-mobile",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.svg",
+    "scheme": "tmaxx",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "owner": "tmaxx",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Allow T-Maxx to access your photos to set your profile picture."
+      },
+      "bundleIdentifier": "app.tmaxx.mobile"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://tmaxx.app"
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "android": {
+      "package": "app.tmaxx.mobile"
+    }
+  }
+}

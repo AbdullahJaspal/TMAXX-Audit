@@ -1,0 +1,12 @@
+
+- Add habit to plan is not working properly (may be fixed after build) 
+- Signup is not working properly (may be fixed after Supabase issue)
+- Sign in sometimes fails (seems like only on first expo load?)
+- Apple and Google Sign In
+- What happens if no service
+- Projection Chart FF 
+- Ask for the Users Name? 
+- Payment? 
+- One time offer is actually one time 
+- Streaks are not working?  (eg don't increment after I check them off)
+- it's annoying that you get a congrats everytime you go to the today tab. 
